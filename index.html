@@ -89,10 +89,15 @@ h1,h2,h3, .display{ font-family:'Baloo 2', sans-serif; }
    ============================================================ */
 #app{
   position:relative;
-  width:100%; height:100dvh;
-  max-width:480px; margin:0 auto;
+  width:100%;
+  height:100vh;
+  height:100svh;
+  height:100dvh;
+  max-width:520px; margin:0 auto;
   overflow:hidden;
   display:flex; flex-direction:column;
+  padding-top:env(safe-area-inset-top);
+  padding-bottom:env(safe-area-inset-bottom);
 }
 
 /* ============================================================
@@ -123,7 +128,8 @@ h1,h2,h3, .display{ font-family:'Baloo 2', sans-serif; }
   align-items:center;
   justify-content:center;
   text-align:center;
-  padding:28px 24px;
+  padding:clamp(16px,6vw,28px) clamp(14px,5vw,24px);
+  overflow-y:auto;
 }
 .screen.active{ display:flex; }
 
@@ -136,16 +142,17 @@ h1,h2,h3, .display{ font-family:'Baloo 2', sans-serif; }
   font-weight:700; margin-bottom:14px;
 }
 #screen-intro h1{
-  font-size:2.5rem; line-height:1.05; margin:0 0 10px;
+  font-size:clamp(1.9rem, 9vw, 2.6rem); line-height:1.08; margin:0 0 10px;
   color:var(--text-light);
   text-shadow:0 0 24px rgba(181,126,220,.55);
 }
 #screen-intro h1 span{ color:var(--pink-accent); }
 #screen-intro p.sub{
-  max-width:320px; color:#d9c9f0; font-size:1rem; margin:0 0 34px; font-weight:500;
+  max-width:90vw; color:#d9c9f0; font-size:clamp(.9rem, 4vw, 1rem);
+  margin:0 0 clamp(20px, 6vw, 34px); font-weight:500;
 }
-.mascot-row{ display:flex; gap:18px; margin-bottom:30px; }
-.mascot-row svg{ width:78px; height:78px; }
+.mascot-row{ display:flex; gap:clamp(14px, 5vw, 18px); margin-bottom:clamp(20px, 6vw, 30px); }
+.mascot-row svg{ width:clamp(64px, 20vw, 78px); height:clamp(64px, 20vw, 78px); }
 
 /* ============================================================
    CH.7 — BUTTONS
@@ -154,20 +161,25 @@ h1,h2,h3, .display{ font-family:'Baloo 2', sans-serif; }
    ============================================================ */
 .btn{
   font-family:'Baloo 2', sans-serif;
-  font-weight:700; font-size:1.15rem;
+  font-weight:700; font-size:clamp(1rem, 4.5vw, 1.15rem);
   color:#1c1030;
   background:linear-gradient(135deg, var(--gold), #ffb6e1);
   border:none; border-radius:999px;
-  padding:16px 44px;
+  padding:clamp(14px, 4vw, 16px) clamp(32px, 10vw, 44px);
+  min-height:52px;
   box-shadow:0 8px 24px rgba(232,93,158,.35);
   cursor:pointer;
   transition:transform .15s ease;
+  touch-action:manipulation;
 }
 .btn:active{ transform:scale(.94); }
 .btn.ghost{
   background:transparent; color:var(--text-light);
   border:2px solid rgba(245,238,255,.4);
-  box-shadow:none; font-size:.95rem; padding:12px 28px; margin-top:14px;
+  box-shadow:none; font-size:clamp(.85rem, 3.6vw, .95rem);
+  padding:clamp(10px, 3vw, 12px) clamp(22px, 6vw, 28px);
+  min-height:46px;
+  margin-top:14px;
 }
 
 /* ============================================================
@@ -175,13 +187,13 @@ h1,h2,h3, .display{ font-family:'Baloo 2', sans-serif; }
    The love meter + countdown timer pinned to the top of the
    game screen.
    ============================================================ */
-#screen-game{ justify-content:flex-start; padding:18px 16px; }
+#screen-game{ justify-content:flex-start; padding:clamp(12px,4vw,18px) clamp(12px,4vw,16px); overflow-y:hidden; }
 .hud{
-  width:100%; display:flex; align-items:center; gap:12px;
+  width:100%; display:flex; align-items:center; gap:10px;
   z-index:5;
 }
 .meter-wrap{
-  flex:1; height:20px; border-radius:999px;
+  flex:1; height:clamp(18px, 5vw, 22px); border-radius:999px;
   background:rgba(255,255,255,.12);
   border:1px solid rgba(255,255,255,.18);
   overflow:hidden; position:relative;
@@ -195,12 +207,12 @@ h1,h2,h3, .display{ font-family:'Baloo 2', sans-serif; }
   box-shadow:0 0 12px rgba(232,93,158,.6);
 }
 .timer{
-  font-family:'Baloo 2'; font-weight:700; font-size:1rem;
+  font-family:'Baloo 2'; font-weight:700; font-size:clamp(.9rem, 4vw, 1rem);
   background:rgba(255,255,255,.1); padding:6px 12px; border-radius:999px;
-  min-width:52px;
+  min-width:48px; text-align:center; flex-shrink:0;
 }
 .hint{
-  margin-top:10px; font-size:.82rem; color:#c9b6e8; font-weight:600;
+  margin-top:8px; font-size:clamp(.72rem, 3.4vw, .82rem); color:#c9b6e8; font-weight:600;
 }
 
 /* ============================================================
@@ -217,10 +229,12 @@ h1,h2,h3, .display{ font-family:'Baloo 2', sans-serif; }
 }
 .fall-item{
   position:absolute; top:-60px;
-  font-size:2rem; line-height:1;
+  font-size:clamp(1.9rem, 8vw, 2.3rem); line-height:1;
   filter:drop-shadow(0 4px 10px rgba(0,0,0,.35));
   animation:fall linear forwards;
   touch-action:none;
+  padding:8px;
+  margin:-8px;
 }
 @keyframes fall{
   to{ transform:translateY(var(--fall-dist)); }
@@ -262,25 +276,25 @@ h1,h2,h3, .display{ font-family:'Baloo 2', sans-serif; }
    CH.11 — SCREEN: END
    Final results screen: percentage, badge row, and note card.
    ============================================================ */
-#screen-end h2{ font-size:1.9rem; margin:0 0 4px; }
+#screen-end h2{ font-size:clamp(1.5rem, 7vw, 1.9rem); margin:0 0 4px; }
 #screen-end .pct{ color:var(--gold); }
 .note-card{
   background:rgba(255,255,255,.06);
   border:1px solid rgba(255,214,107,.35);
-  border-radius:18px; padding:20px 22px;
-  margin:18px 0; max-width:340px;
-  font-size:1.02rem; line-height:1.55; color:#f5eeff;
+  border-radius:18px; padding:clamp(16px, 5vw, 20px) clamp(16px, 5vw, 22px);
+  margin:clamp(14px,4vw,18px) 0; max-width:92vw;
+  font-size:clamp(.9rem, 4vw, 1.02rem); line-height:1.55; color:#f5eeff;
   font-weight:500;
 }
 .badge-row{
   display:flex; flex-wrap:wrap; gap:8px; justify-content:center;
-  max-width:340px; margin-bottom:8px;
+  max-width:92vw; margin-bottom:8px;
 }
 .mini-badge{
   background:rgba(181,126,220,.18);
   border:1px solid rgba(181,126,220,.5);
   border-radius:999px; padding:6px 12px;
-  font-size:.75rem; font-weight:700; color:var(--purple-bright);
+  font-size:.72rem; font-weight:700; color:var(--purple-bright);
 }
 
 /* ============================================================
@@ -310,7 +324,7 @@ h1,h2,h3, .display{ font-family:'Baloo 2', sans-serif; }
 }
 .modal-backdrop.show{ display:flex; }
 .modal-card{
-  width:100%; max-width:380px; max-height:80vh;
+  width:min(92vw, 380px); max-height:80vh;
   overflow-y:auto;
   background:linear-gradient(160deg, rgba(44,26,77,.98), rgba(28,16,48,.98));
   border:1px solid rgba(181,126,220,.4);
@@ -359,6 +373,19 @@ h1,h2,h3, .display{ font-family:'Baloo 2', sans-serif; }
   .amb-heart, .fall-item, .confetti-piece{ animation:none !important; }
 }
 
+/* ============================================================
+   CH.14b — SHORT / LANDSCAPE SCREENS
+   Tightens vertical spacing when there isn't much height to
+   work with (small phones in landscape, older devices).
+   ============================================================ */
+@media (max-height: 640px){
+  .mascot-row{ margin-bottom:14px; }
+  #screen-intro p.sub{ margin-bottom:16px; }
+  #screen-intro h1{ margin-bottom:6px; }
+  .note-card{ padding:14px 16px; margin:10px 0; }
+  .badge-row{ margin-bottom:4px; }
+}
+
 </style>
 </head>
 <body>
@@ -369,8 +396,8 @@ h1,h2,h3, .display{ font-family:'Baloo 2', sans-serif; }
        CH.15 — INTRO SCREEN
        ============================================================ -->
   <section class="screen active" id="screen-intro">
-    <div class="eyebrow">Happy Girlfriend Day</div>
-    <h1>A Tiny Quest,<br>Just for You <span>Maeve</span></h1>
+    <div class="eyebrow">National Girlfriend Day</div>
+    <h1>A Tiny Quest,<br>Just for <span>You</span></h1>
     <p class="sub">A little made-for-you game. Catch what falls, unlock a few truths, fill the meter with love.</p>
     <div class="mascot-row">
       <svg viewBox="0 0 100 100"><g id="mascot-kuromi-mini"></g></svg>
@@ -534,7 +561,7 @@ h1,h2,h3, .display{ font-family:'Baloo 2', sans-serif; }
     {at:10, key:'panda',  badge:'🐼', title:'Panda Whisperer',         msg:'Certified red panda charmer. They\'d climb right into your arms too.'},
     {at:15, key:'chaos',  badge:'😈', title:'Chaos Gremlin, Approved', msg:'Kuromi says you\'ve officially got main-character energy today.'},
     {at:20, key:'purple', badge:'⭐', title:'Purple Heart',            msg:'Almost there. Purple looks good on you, obviously.'},
-    {at:25, key:'goty',   badge:'👑', title:'Girlfriend of a Lifetime',  msg:'Her heart is officially, completely full.'},
+    {at:25, key:'goty',   badge:'👑', title:'Girlfriend of the Year',  msg:'Her heart is officially, completely full.'},
   ];
   const MAX_HITS = 25;
 
