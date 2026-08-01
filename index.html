@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<!--
+  ============================================================================
+  HAPPY GIRLFRIEND DAY — A Tiny Quest
+  ============================================================================
+  A single-file, mobile-first tap game made for National Girlfriend Day.
+
+  TABLE OF CONTENTS
+  ------------------------------------------------------------------------
+  STYLES  (<style> in <head>)
+    CH.1   Design Tokens ................ colors used everywhere
+    CH.2   Base & Reset .................. html/body/global rules
+    CH.3   App Shell ..................... the phone-sized frame
+    CH.4   Ambient Background ............ floating hearts behind everything
+    CH.5   Screen System ................. show/hide logic for 3 screens
+    CH.6   Screen: Intro ................. title screen styles
+    CH.7   Buttons ....................... primary + ghost button styles
+    CH.8   Screen: Game — HUD ............ meter bar + timer
+    CH.9   Screen: Game — Fall Zone ...... falling items + tap feedback
+    CH.10  Screen: Game — Achievement Toast
+    CH.11  Screen: End .................... results + note card
+    CH.12  Confetti ....................... end-screen celebration
+    CH.13  Achievements Modal ............. "see what you unlocked" popup
+    CH.14  Accessibility .................. reduced-motion support
+
+  MARKUP  (<body>)
+    CH.15  Intro Screen
+    CH.16  Game Screen
+    CH.17  End Screen
+    CH.18  Achievements Modal
+
+  SCRIPT  (<script>)
+    CH.19  Ambient Setup .................. spawns background hearts
+    CH.20  Mascot Illustrations ........... original SVG bunny + red panda art
+    CH.21  Screen Navigation .............. show(screenName)
+    CH.22  Game Configuration & State ..... items, achievements, counters
+    CH.23  Falling Items Engine ........... spawning + animating drops
+    CH.24  Hit Detection & Scoring ........ what happens on tap
+    CH.25  Achievements Engine ............ unlock checks + toast popup
+    CH.26  Game Loop ...................... start / end
+    CH.27  End Screen Rendering ........... final message + badges
+    CH.28  Confetti Effect
+    CH.29  Achievements Modal Logic ....... populate + open/close
+    CH.30  Event Bindings & Boot .......... wires buttons, starts app
+  ============================================================================
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
+<title>Happy Girlfriend Day 💜</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+
+/* ============================================================
+   CH.1 — DESIGN TOKENS
+   All colors used across the page live here so the palette can
+   be tweaked in one place.
+   ============================================================ */
+:root{
+  --bg-deep:#1c1030;
+  --bg-mid:#2c1a4d;
+  --purple-primary:#8b4fd1;
+  --purple-bright:#b57edc;
+  --pink-accent:#e85d9e;
+  --panda-rust:#d4713c;
+  --panda-cream:#f6e4c9;
+  --text-light:#f5eeff;
+  --gold:#ffd66b;
+}
+
+/* ============================================================
+   CH.2 — BASE & RESET
+   ============================================================ */
+*{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; }
+html,body{
+  height:100%; margin:0;
+  background:radial-gradient(ellipse at 50% 0%, var(--bg-mid), var(--bg-deep) 70%);
+  font-family:'Quicksand', sans-serif;
+  color:var(--text-light);
+  overflow:hidden;
+}
+h1,h2,h3, .display{ font-family:'Baloo 2', sans-serif; }
+
+/* ============================================================
+   CH.3 — APP SHELL
+   The phone-sized frame every screen lives inside.
+   ============================================================ */
+#app{
+  position:relative;
+  width:100%; height:100dvh;
+  max-width:480px; margin:0 auto;
+  overflow:hidden;
+  display:flex; flex-direction:column;
+}
+
+/* ============================================================
+   CH.4 — AMBIENT BACKGROUND
+   Softly floating hearts/sparkles drifting behind every screen.
+   Populated by CH.19 in the script.
+   ============================================================ */
+.ambient{ position:absolute; inset:0; pointer-events:none; overflow:hidden; z-index:0; }
+.amb-heart{
+  position:absolute; bottom:-10%; font-size:1.4rem; opacity:.35;
+  animation:floatUp linear infinite;
+  filter:drop-shadow(0 0 6px rgba(181,126,220,.5));
+}
+@keyframes floatUp{
+  to{ transform:translateY(-120vh) rotate(20deg); opacity:0; }
+}
+
+/* ============================================================
+   CH.5 — SCREEN SYSTEM
+   Three full-height screens (intro / game / end). Only one has
+   the .active class at a time — toggled by show() in CH.21.
+   ============================================================ */
+.screen{
+  position:relative; z-index:1;
+  width:100%; height:100%;
+  display:none;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+  padding:28px 24px;
+}
+.screen.active{ display:flex; }
+
+/* ============================================================
+   CH.6 — SCREEN: INTRO
+   ============================================================ */
+.eyebrow{
+  letter-spacing:.14em; text-transform:uppercase;
+  font-size:.72rem; color:var(--purple-bright);
+  font-weight:700; margin-bottom:14px;
+}
+#screen-intro h1{
+  font-size:2.5rem; line-height:1.05; margin:0 0 10px;
+  color:var(--text-light);
+  text-shadow:0 0 24px rgba(181,126,220,.55);
+}
+#screen-intro h1 span{ color:var(--pink-accent); }
+#screen-intro p.sub{
+  max-width:320px; color:#d9c9f0; font-size:1rem; margin:0 0 34px; font-weight:500;
+}
+.mascot-row{ display:flex; gap:18px; margin-bottom:30px; }
+.mascot-row svg{ width:78px; height:78px; }
+
+/* ============================================================
+   CH.7 — BUTTONS
+   Primary (filled) and ghost (outlined) button styles, reused
+   across all three screens.
+   ============================================================ */
+.btn{
+  font-family:'Baloo 2', sans-serif;
+  font-weight:700; font-size:1.15rem;
+  color:#1c1030;
+  background:linear-gradient(135deg, var(--gold), #ffb6e1);
+  border:none; border-radius:999px;
+  padding:16px 44px;
+  box-shadow:0 8px 24px rgba(232,93,158,.35);
+  cursor:pointer;
+  transition:transform .15s ease;
+}
+.btn:active{ transform:scale(.94); }
+.btn.ghost{
+  background:transparent; color:var(--text-light);
+  border:2px solid rgba(245,238,255,.4);
+  box-shadow:none; font-size:.95rem; padding:12px 28px; margin-top:14px;
+}
+
+/* ============================================================
+   CH.8 — SCREEN: GAME — HUD
+   The love meter + countdown timer pinned to the top of the
+   game screen.
+   ============================================================ */
+#screen-game{ justify-content:flex-start; padding:18px 16px; }
+.hud{
+  width:100%; display:flex; align-items:center; gap:12px;
+  z-index:5;
+}
+.meter-wrap{
+  flex:1; height:20px; border-radius:999px;
+  background:rgba(255,255,255,.12);
+  border:1px solid rgba(255,255,255,.18);
+  overflow:hidden; position:relative;
+}
+.meter-fill{
+  height:100%; width:0%;
+  background:linear-gradient(90deg, var(--pink-accent), var(--purple-bright), var(--gold));
+  background-size:200% 100%;
+  border-radius:999px;
+  transition:width .35s ease;
+  box-shadow:0 0 12px rgba(232,93,158,.6);
+}
+.timer{
+  font-family:'Baloo 2'; font-weight:700; font-size:1rem;
+  background:rgba(255,255,255,.1); padding:6px 12px; border-radius:999px;
+  min-width:52px;
+}
+.hint{
+  margin-top:10px; font-size:.82rem; color:#c9b6e8; font-weight:600;
+}
+
+/* ============================================================
+   CH.9 — SCREEN: GAME — FALL ZONE
+   The play area where hearts/pandas/stars fall, plus the
+   little "+1" pop feedback on tap.
+   ============================================================ */
+.fall-zone{
+  position:relative; flex:1; width:100%;
+  margin-top:10px;
+  overflow:hidden;
+  border-radius:20px;
+  background:linear-gradient(180deg, rgba(139,79,209,.08), rgba(28,16,48,0));
+}
+.fall-item{
+  position:absolute; top:-60px;
+  font-size:2rem; line-height:1;
+  filter:drop-shadow(0 4px 10px rgba(0,0,0,.35));
+  animation:fall linear forwards;
+  touch-action:none;
+}
+@keyframes fall{
+  to{ transform:translateY(var(--fall-dist)); }
+}
+.pop{
+  position:absolute; font-family:'Baloo 2'; font-weight:800;
+  color:var(--gold); font-size:1.1rem; pointer-events:none;
+  animation:popUp .7s ease-out forwards;
+}
+@keyframes popUp{
+  0%{ opacity:1; transform:translateY(0) scale(.8);}
+  100%{ opacity:0; transform:translateY(-40px) scale(1.3);}
+}
+
+/* ============================================================
+   CH.10 — SCREEN: GAME — ACHIEVEMENT TOAST
+   Slides down from the top of the fall zone when a milestone
+   is hit (see CH.25 in the script).
+   ============================================================ */
+#toast{
+  position:absolute; top:14px; left:50%;
+  transform:translate(-50%,-140%);
+  width:88%; max-width:400px;
+  background:linear-gradient(135deg, rgba(139,79,209,.95), rgba(43,26,80,.97));
+  border:1px solid rgba(255,214,107,.6);
+  border-radius:16px; padding:14px 16px;
+  display:flex; align-items:center; gap:12px;
+  box-shadow:0 10px 30px rgba(0,0,0,.4);
+  z-index:20;
+  transition:transform .45s cubic-bezier(.34,1.56,.64,1);
+}
+#toast.show{ transform:translate(-50%,0); }
+#toast .badge{ font-size:1.8rem; }
+#toast .txt{ text-align:left; }
+#toast .txt b{ display:block; font-family:'Baloo 2'; font-size:.95rem; color:var(--gold); }
+#toast .txt span{ font-size:.8rem; color:#e9defc; }
+
+/* ============================================================
+   CH.11 — SCREEN: END
+   Final results screen: percentage, badge row, and note card.
+   ============================================================ */
+#screen-end h2{ font-size:1.9rem; margin:0 0 4px; }
+#screen-end .pct{ color:var(--gold); }
+.note-card{
+  background:rgba(255,255,255,.06);
+  border:1px solid rgba(255,214,107,.35);
+  border-radius:18px; padding:20px 22px;
+  margin:18px 0; max-width:340px;
+  font-size:1.02rem; line-height:1.55; color:#f5eeff;
+  font-weight:500;
+}
+.badge-row{
+  display:flex; flex-wrap:wrap; gap:8px; justify-content:center;
+  max-width:340px; margin-bottom:8px;
+}
+.mini-badge{
+  background:rgba(181,126,220,.18);
+  border:1px solid rgba(181,126,220,.5);
+  border-radius:999px; padding:6px 12px;
+  font-size:.75rem; font-weight:700; color:var(--purple-bright);
+}
+
+/* ============================================================
+   CH.12 — CONFETTI
+   Falling confetti pieces launched on the end screen (CH.28).
+   ============================================================ */
+.confetti-piece{
+  position:absolute; top:-10%; width:8px; height:14px; opacity:.9;
+  animation:confettiFall linear forwards;
+}
+@keyframes confettiFall{
+  to{ transform:translateY(120vh) rotate(360deg); opacity:0;}
+}
+
+/* ============================================================
+   CH.13 — ACHIEVEMENTS MODAL
+   The "See what you unlocked" popup, listing all achievements
+   with locked/unlocked states. Logic lives in CH.29.
+   ============================================================ */
+.modal-backdrop{
+  position:fixed; inset:0; z-index:50;
+  background:rgba(12,7,22,.72);
+  backdrop-filter:blur(2px);
+  display:none;
+  align-items:center; justify-content:center;
+  padding:20px;
+}
+.modal-backdrop.show{ display:flex; }
+.modal-card{
+  width:100%; max-width:380px; max-height:80vh;
+  overflow-y:auto;
+  background:linear-gradient(160deg, rgba(44,26,77,.98), rgba(28,16,48,.98));
+  border:1px solid rgba(181,126,220,.4);
+  border-radius:22px;
+  padding:22px 20px 20px;
+  box-shadow:0 20px 50px rgba(0,0,0,.5);
+  animation:modalIn .25s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes modalIn{
+  from{ opacity:0; transform:scale(.9) translateY(10px); }
+  to{ opacity:1; transform:scale(1) translateY(0); }
+}
+.modal-head{
+  display:flex; align-items:center; justify-content:space-between;
+  margin-bottom:14px;
+}
+.modal-head h3{ margin:0; font-size:1.25rem; color:var(--text-light); }
+.modal-close{
+  background:rgba(255,255,255,.1); border:none; color:var(--text-light);
+  width:32px; height:32px; border-radius:50%; font-size:1.1rem;
+  cursor:pointer; line-height:1;
+}
+.achv-list{ display:flex; flex-direction:column; gap:10px; }
+.achv-item{
+  display:flex; gap:12px; align-items:flex-start;
+  background:rgba(255,255,255,.05);
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:14px; padding:12px 14px;
+  text-align:left;
+}
+.achv-item.locked{ opacity:.45; }
+.achv-icon{ font-size:1.6rem; flex-shrink:0; width:30px; text-align:center; }
+.achv-body b{ display:block; font-family:'Baloo 2'; font-size:.92rem; color:var(--gold); margin-bottom:2px; }
+.achv-item.locked .achv-body b{ color:#cbb8e6; }
+.achv-body span{ font-size:.8rem; color:#e5d9f7; line-height:1.4; }
+.achv-progress{
+  margin-top:16px; font-size:.78rem; text-align:center; color:#c9b6e8; font-weight:600;
+}
+
+/* ============================================================
+   CH.14 — ACCESSIBILITY
+   Respect prefers-reduced-motion by disabling decorative
+   animations.
+   ============================================================ */
+@media (prefers-reduced-motion: reduce){
+  .amb-heart, .fall-item, .confetti-piece{ animation:none !important; }
+}
+
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="ambient" id="ambient"></div>
+
+  <!-- ============================================================
+       CH.15 — INTRO SCREEN
+       ============================================================ -->
+  <section class="screen active" id="screen-intro">
+    <div class="eyebrow">National Girlfriend Day</div>
+    <h1>A Tiny Quest,<br>Just for <span>You</span></h1>
+    <p class="sub">A little made-for-you game. Catch what falls, unlock a few truths, fill the meter with love.</p>
+    <div class="mascot-row">
+      <svg viewBox="0 0 100 100"><g id="mascot-kuromi-mini"></g></svg>
+      <svg viewBox="0 0 100 100"><g id="mascot-panda-mini"></g></svg>
+    </div>
+    <button class="btn" id="btn-start">Start ✨</button>
+  </section>
+
+  <!-- ============================================================
+       CH.16 — GAME SCREEN
+       ============================================================ -->
+  <section class="screen" id="screen-game">
+    <div class="hud">
+      <div class="meter-wrap"><div class="meter-fill" id="meterFill"></div></div>
+      <div class="timer" id="timer">40</div>
+    </div>
+    <div class="hint">tap everything that falls 💜</div>
+    <div class="fall-zone" id="fallZone">
+      <div id="toast">
+        <div class="badge" id="toastBadge">💜</div>
+        <div class="txt"><b id="toastTitle"></b><span id="toastMsg"></span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       CH.17 — END SCREEN
+       ============================================================ -->
+  <section class="screen" id="screen-end">
+    <svg viewBox="0 0 100 100" style="width:90px;height:90px;margin-bottom:6px;"><g id="mascot-end"></g></svg>
+    <h2>Her heart is <span class="pct" id="finalPct">0%</span> full</h2>
+    <div class="badge-row" id="badgeRow"></div>
+    <div class="note-card" id="noteCard"></div>
+    <button class="btn" id="btn-again">Play Again 🐼</button>
+    <button class="btn ghost" id="btn-badges">See what you unlocked</button>
+  </section>
+
+  <!-- ============================================================
+       CH.18 — ACHIEVEMENTS MODAL
+       ============================================================ -->
+  <div class="modal-backdrop" id="badgesBackdrop">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h3>Your Unlocks</h3>
+        <button class="modal-close" id="modalClose">✕</button>
+      </div>
+      <div class="achv-list" id="achvList"></div>
+      <div class="achv-progress" id="achvProgress"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ============================================================
+     CH.19 — AMBIENT SETUP
+     Spawns the softly floating hearts/sparkles behind every
+     screen (styled in CH.4).
+     ============================================================ */
+  const ambient = document.getElementById('ambient');
+  const AMBIENT_EMOJI = ['💜','✨','🐾'];
+  for(let i=0;i<14;i++){
+    const el = document.createElement('div');
+    el.className = 'amb-heart';
+    el.textContent = AMBIENT_EMOJI[Math.floor(Math.random()*AMBIENT_EMOJI.length)];
+    el.style.left = Math.random()*100 + '%';
+    el.style.fontSize = (0.9 + Math.random()*1.2) + 'rem';
+    const dur = 9 + Math.random()*10;
+    el.style.animationDuration = dur + 's';
+    el.style.animationDelay = (-Math.random()*dur) + 's';
+    ambient.appendChild(el);
+  }
+
+  /* ============================================================
+     CH.20 — MASCOT ILLUSTRATIONS
+     Two original hand-built SVGs (not traced from any existing
+     artwork): a purple mischief-bunny and a chibi red panda.
+     Each takes a "mood" and returns inner SVG markup.
+     ============================================================ */
+  function kuromiMascot(mood){
+    // mood: 'neutral' | 'happy' | 'wink' | 'love'
+    const eyes = mood==='love'
+      ? `<path d="M32 52 Q37 44 42 52" stroke="#1c1030" stroke-width="3.4" fill="none" stroke-linecap="round"/>
+         <path d="M58 52 Q63 44 68 52" stroke="#1c1030" stroke-width="3.4" fill="none" stroke-linecap="round"/>`
+      : mood==='wink'
+      ? `<circle cx="37" cy="52" r="3.6" fill="#1c1030"/>
+         <path d="M58 52 Q63 47 68 52" stroke="#1c1030" stroke-width="3.4" fill="none" stroke-linecap="round"/>`
+      : `<circle cx="37" cy="52" r="3.6" fill="#1c1030"/><circle cx="63" cy="52" r="3.6" fill="#1c1030"/>`;
+    const mouth = mood==='neutral'
+      ? `<path d="M43 62 Q50 66 57 62" stroke="#1c1030" stroke-width="3" fill="none" stroke-linecap="round"/>`
+      : `<path d="M41 61 Q50 70 59 61" stroke="#1c1030" stroke-width="3" fill="none" stroke-linecap="round"/>`;
+    return `
+      <ellipse cx="50" cy="90" rx="20" ry="6" fill="rgba(0,0,0,.15)"/>
+      <path d="M20 45 L10 12 L34 30 Z" fill="#3a2260"/>
+      <path d="M80 45 L90 12 L66 30 Z" fill="#3a2260"/>
+      <path d="M20 45 L14 18 L32 32 Z" fill="#8b4fd1"/>
+      <path d="M80 45 L86 18 L68 32 Z" fill="#8b4fd1"/>
+      <circle cx="50" cy="55" r="34" fill="#f5eeff"/>
+      <path d="M50 21 a34 34 0 0 1 34 34 c0 4 -1 8 -2 11 c-8 -4 -18 -6 -32 -6 c-14 0 -24 2 -32 6 c-1 -3 -2 -7 -2 -11 a34 34 0 0 1 34 -34 z" fill="#2c1a4d"/>
+      <path d="M43 26 l4 8 l-8 -2 z" fill="#e9defc"/>
+      ${eyes}
+      <ellipse cx="30" cy="58" rx="5" ry="3.2" fill="#e85d9e" opacity=".7"/>
+      <ellipse cx="70" cy="58" rx="5" ry="3.2" fill="#e85d9e" opacity=".7"/>
+      ${mouth}
+      <path d="M50 68 l2.4 -4.8 h-4.8 z" fill="#1c1030"/>
+    `;
+  }
+  function pandaMascot(mood){
+    const eyes = mood==='love'
+      ? `<path d="M35 55 Q40 47 45 55" stroke="#3a1c0f" stroke-width="3.2" fill="none" stroke-linecap="round"/>
+         <path d="M55 55 Q60 47 65 55" stroke="#3a1c0f" stroke-width="3.2" fill="none" stroke-linecap="round"/>`
+      : `<circle cx="40" cy="55" r="3.4" fill="#3a1c0f"/><circle cx="60" cy="55" r="3.4" fill="#3a1c0f"/>`;
+    return `
+      <ellipse cx="50" cy="90" rx="20" ry="6" fill="rgba(0,0,0,.15)"/>
+      <circle cx="22" cy="24" r="12" fill="#c85a2e"/>
+      <circle cx="78" cy="24" r="12" fill="#c85a2e"/>
+      <circle cx="22" cy="24" r="6" fill="#f6e4c9"/>
+      <circle cx="78" cy="24" r="6" fill="#f6e4c9"/>
+      <circle cx="50" cy="55" r="33" fill="#d4713c"/>
+      <path d="M50 22 a33 33 0 0 1 30 46 c-9 -6 -19 -9 -30 -9 c-11 0 -21 3 -30 9 a33 33 0 0 1 30 -46z" fill="#b85a29"/>
+      <path d="M30 58 a20 20 0 0 0 40 0 c0 12 -9 20 -20 20 c-11 0 -20 -8 -20 -20z" fill="#f6e4c9"/>
+      ${eyes}
+      <ellipse cx="50" cy="64" rx="4.5" ry="3.6" fill="#3a1c0f"/>
+      <path d="M50 67 Q46 72 41 69 M50 67 Q54 72 59 69" stroke="#3a1c0f" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+      <ellipse cx="32" cy="62" rx="4.5" ry="3" fill="#e8946b" opacity=".7"/>
+      <ellipse cx="68" cy="62" rx="4.5" ry="3" fill="#e8946b" opacity=".7"/>
+    `;
+  }
+  document.getElementById('mascot-kuromi-mini').innerHTML = kuromiMascot('neutral');
+  document.getElementById('mascot-panda-mini').innerHTML = pandaMascot('neutral');
+
+  /* ============================================================
+     CH.21 — SCREEN NAVIGATION
+     A single show(name) function swaps the .active screen.
+     ============================================================ */
+  const screens = {
+    intro: document.getElementById('screen-intro'),
+    game: document.getElementById('screen-game'),
+    end: document.getElementById('screen-end')
+  };
+  function show(name){
+    Object.values(screens).forEach(s=>s.classList.remove('active'));
+    screens[name].classList.add('active');
+  }
+
+  /* ============================================================
+     CH.22 — GAME CONFIGURATION & STATE
+     Everything about "what can fall", "what can be unlocked",
+     and the live counters that track a play session.
+     ============================================================ */
+  const FALL_ITEMS = [
+    {emoji:'💜', weight:5},
+    {emoji:'🐼', weight:3},
+    {emoji:'⭐', weight:2},
+    {emoji:'💫', weight:2},
+  ];
+  const ACHIEVEMENTS = [
+    {at:5,  key:'spark',  badge:'💜', title:'First Spark',            msg:'One heart down. This is only the beginning of today\'s cuteness.'},
+    {at:10, key:'panda',  badge:'🐼', title:'Panda Whisperer',         msg:'Certified red panda charmer. They\'d climb right into your arms too.'},
+    {at:15, key:'chaos',  badge:'😈', title:'Chaos Gremlin, Approved', msg:'Kuromi says you\'ve officially got main-character energy today.'},
+    {at:20, key:'purple', badge:'⭐', title:'Purple Heart',            msg:'Almost there. Purple looks good on you, obviously.'},
+    {at:25, key:'goty',   badge:'👑', title:'Girlfriend of a Lifetime',  msg:'Her heart is officially, completely full.'},
+  ];
+  const MAX_HITS = 25;
+
+  let hits = 0;
+  let unlocked = [];
+  let spawnInterval = null;
+  let timerInterval = null;
+  let timeLeft = 40;
+  let gameActive = false;
+
+  const fallZone = document.getElementById('fallZone');
+  const meterFill = document.getElementById('meterFill');
+  const timerEl = document.getElementById('timer');
+  const toast = document.getElementById('toast');
+  const toastBadge = document.getElementById('toastBadge');
+  const toastTitle = document.getElementById('toastTitle');
+  const toastMsg = document.getElementById('toastMsg');
+
+  /* ============================================================
+     CH.23 — FALLING ITEMS ENGINE
+     Picks a random item (weighted), spawns it at the top of the
+     fall zone, and lets CSS animate it downward.
+     ============================================================ */
+  function weightedPick(){
+    const total = FALL_ITEMS.reduce((s,i)=>s+i.weight,0);
+    let r = Math.random()*total;
+    for(const item of FALL_ITEMS){
+      if(r < item.weight) return item.emoji;
+      r -= item.weight;
+    }
+    return FALL_ITEMS[0].emoji;
+  }
+
+  function spawnFallItem(){
+    if(!gameActive) return;
+    const el = document.createElement('div');
+    el.className = 'fall-item';
+    el.textContent = weightedPick();
+    const leftPct = 8 + Math.random()*80;
+    el.style.left = leftPct + '%';
+    const zoneH = fallZone.clientHeight || 400;
+    const dist = zoneH + 100;
+    el.style.setProperty('--fall-dist', dist + 'px');
+    const dur = 3.2 + Math.random()*1.8;
+    el.style.animationDuration = dur + 's';
+    fallZone.appendChild(el);
+
+    const onTap = (e)=>{
+      e.preventDefault();
+      registerHit(el);
+    };
+    el.addEventListener('pointerdown', onTap, {once:true});
+    el.addEventListener('animationend', ()=>{ el.remove(); });
+  }
+
+  /* ============================================================
+     CH.24 — HIT DETECTION & SCORING
+     What happens the moment she taps a falling item: visual
+     feedback, meter update, achievement check.
+     ============================================================ */
+  function popText(x, y, text){
+    const p = document.createElement('div');
+    p.className = 'pop';
+    p.textContent = text;
+    p.style.left = x + 'px';
+    p.style.top = y + 'px';
+    fallZone.appendChild(p);
+    setTimeout(()=>p.remove(), 750);
+  }
+
+  function registerHit(el){
+    if(!gameActive) return;
+    const rect = el.getBoundingClientRect();
+    const zoneRect = fallZone.getBoundingClientRect();
+    popText(rect.left - zoneRect.left, rect.top - zoneRect.top, '+1 💜');
+    el.style.transition = 'transform .2s ease, opacity .2s ease';
+    el.style.transform = 'scale(1.6)';
+    el.style.opacity = '0';
+    setTimeout(()=>el.remove(), 200);
+
+    hits = Math.min(MAX_HITS, hits + 1);
+    updateMeter();
+    checkAchievements();
+
+    if(hits >= MAX_HITS){
+      endGame();
+    }
+  }
+
+  function updateMeter(){
+    const pct = Math.round((hits / MAX_HITS) * 100);
+    meterFill.style.width = pct + '%';
+  }
+
+  /* ============================================================
+     CH.25 — ACHIEVEMENTS ENGINE
+     Checks hit-count thresholds and fires the toast the moment
+     a new achievement unlocks.
+     ============================================================ */
+  function checkAchievements(){
+    for(const a of ACHIEVEMENTS){
+      if(hits >= a.at && !unlocked.includes(a.key)){
+        unlocked.push(a.key);
+        showToast(a);
+      }
+    }
+  }
+
+  let toastTimeout = null;
+  function showToast(a){
+    toastBadge.textContent = a.badge;
+    toastTitle.textContent = a.title;
+    toastMsg.textContent = a.msg;
+    toast.classList.add('show');
+    clearTimeout(toastTimeout);
+    toastTimeout = setTimeout(()=>toast.classList.remove('show'), 2400);
+  }
+
+  /* ============================================================
+     CH.26 — GAME LOOP
+     startGame() resets state and begins spawning + the timer.
+     endGame() stops both and hands off to the end screen.
+     ============================================================ */
+  function startGame(){
+    hits = 0; unlocked = []; timeLeft = 40;
+    meterFill.style.width = '0%';
+    timerEl.textContent = timeLeft;
+    fallZone.querySelectorAll('.fall-item').forEach(n=>n.remove());
+    gameActive = true;
+    show('game');
+
+    spawnInterval = setInterval(spawnFallItem, 550);
+    timerInterval = setInterval(()=>{
+      timeLeft--;
+      timerEl.textContent = timeLeft;
+      if(timeLeft <= 0){ endGame(); }
+    }, 1000);
+  }
+
+  function endGame(){
+    if(!gameActive) return;
+    gameActive = false;
+    clearInterval(spawnInterval);
+    clearInterval(timerInterval);
+    setTimeout(renderEnd, 350);
+  }
+
+  /* ============================================================
+     CH.27 — END SCREEN RENDERING
+     Fills in the final percentage, mascot mood, earned badges,
+     and the closing note text based on how she did.
+     ============================================================ */
+  function renderEnd(){
+    const pct = Math.round((hits / MAX_HITS) * 100);
+    document.getElementById('finalPct').textContent = pct + '%';
+
+    const mood = pct >= 100 ? 'love' : pct >= 40 ? 'happy' : 'neutral';
+    document.getElementById('mascot-end').innerHTML = pct >= 60 ? pandaMascot(mood) : kuromiMascot(mood);
+
+    const badgeRow = document.getElementById('badgeRow');
+    badgeRow.innerHTML = '';
+    ACHIEVEMENTS.forEach(a=>{
+      if(unlocked.includes(a.key)){
+        const b = document.createElement('div');
+        b.className = 'mini-badge';
+        b.textContent = a.badge + ' ' + a.title;
+        badgeRow.appendChild(b);
+      }
+    });
+
+    const note = document.getElementById('noteCard');
+    if(pct >= 100){
+      note.textContent = "Happy National Girlfriend Day. You've got main-character chaos like Kuromi, a heart softer than any red panda's fur, and you make everything around you feel a little more purple — a little magic, a little mischief, all mine. I love you.";
+    } else if(pct >= 40){
+      note.textContent = "Not bad! Her heart's most of the way full — the rest is already yours anyway. Happy Girlfriend Day.";
+    } else {
+      note.textContent = "The meter didn't fill all the way, but she already knows the truth: her heart's been full since long before this game started. Happy Girlfriend Day.";
+    }
+
+    launchConfetti();
+    show('end');
+  }
+
+  /* ============================================================
+     CH.28 — CONFETTI EFFECT
+     A short burst of falling confetti pieces on the end screen.
+     ============================================================ */
+  function launchConfetti(){
+    const colors = ['#b57edc','#e85d9e','#ffd66b','#8b4fd1','#f6e4c9'];
+    for(let i=0;i<26;i++){
+      const c = document.createElement('div');
+      c.className = 'confetti-piece';
+      c.style.left = Math.random()*100 + '%';
+      c.style.background = colors[Math.floor(Math.random()*colors.length)];
+      c.style.animationDuration = (2 + Math.random()*1.5) + 's';
+      c.style.animationDelay = (Math.random()*0.4) + 's';
+      screens.end.appendChild(c);
+      setTimeout(()=>c.remove(), 4000);
+    }
+  }
+
+  /* ============================================================
+     CH.29 — ACHIEVEMENTS MODAL LOGIC
+     Builds the full achievements list (locked + unlocked) and
+     opens/closes the modal from CH.13 / CH.18.
+     ============================================================ */
+  const badgesBackdrop = document.getElementById('badgesBackdrop');
+  const achvList = document.getElementById('achvList');
+  const achvProgress = document.getElementById('achvProgress');
+
+  function openBadgesModal(){
+    achvList.innerHTML = '';
+    ACHIEVEMENTS.forEach(a=>{
+      const isUnlocked = unlocked.includes(a.key);
+      const row = document.createElement('div');
+      row.className = 'achv-item' + (isUnlocked ? '' : ' locked');
+      row.innerHTML = `
+        <div class="achv-icon">${isUnlocked ? a.badge : '🔒'}</div>
+        <div class="achv-body">
+          <b>${a.title}</b>
+          <span>${isUnlocked ? a.msg : 'Not unlocked yet — tap ' + a.at + ' falling things to reveal this one.'}</span>
+        </div>`;
+      achvList.appendChild(row);
+    });
+    achvProgress.textContent = unlocked.length + ' of ' + ACHIEVEMENTS.length + ' unlocked';
+    badgesBackdrop.classList.add('show');
+  }
+  function closeBadgesModal(){
+    badgesBackdrop.classList.remove('show');
+  }
+
+  /* ============================================================
+     CH.30 — EVENT BINDINGS & BOOT
+     Wires up every button, then shows the intro screen.
+     ============================================================ */
+  document.getElementById('btn-start').addEventListener('click', startGame);
+  document.getElementById('btn-again').addEventListener('click', startGame);
+  document.getElementById('btn-badges').addEventListener('click', openBadgesModal);
+  document.getElementById('modalClose').addEventListener('click', closeBadgesModal);
+  badgesBackdrop.addEventListener('click', (e)=>{
+    if(e.target === badgesBackdrop) closeBadgesModal();
+  });
+
+  show('intro');
+})();
+</script>
+</body>
+</html>
